@@ -384,6 +384,14 @@
             [self.commandDelegate sendPluginResult:pluginResult callbackId:scriptCallbackId];
             return NO;
         }
+
+    // Add a special url scheme handler to execute js code (To handle communication with the IAB and the main cordova JS thread)
+    } else if ([[url scheme] isEqualToString:@"gap-code"]) {
+
+      NSString* encodedCode = [[url absoluteString] substringFromIndex:11];
+      NSString* code = [encodedCode stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+      [self.commandDelegate evalJs: code];
+    
     } else if ((self.callbackId != nil) && isTopLevelNavigation) {
         // Send a loadstart event for each top-level navigation (includes redirects).
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK
