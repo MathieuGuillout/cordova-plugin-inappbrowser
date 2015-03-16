@@ -280,9 +280,9 @@
 {
     NSString* jsWrapper = nil;
 
-    if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
-        jsWrapper = [NSString stringWithFormat:@"_cdvIframeBridge.src='gap-iab://%@/'+encodeURIComponent(JSON.stringify([eval(%%@)]));", command.callbackId];
-    }
+    //if ((command.callbackId != nil) && ![command.callbackId isEqualToString:@"INVALID"]) {
+    //jsWrapper = [NSString stringWithFormat:@"_cdvIframeBridge.src='gap-iab://%@/'+encodeURIComponent(JSON.stringify([eval(%%@)]));", command.callbackId];
+    //
     [self injectDeferredObject:[command argumentAtIndex:0] withWrapper:jsWrapper];
 }
 
