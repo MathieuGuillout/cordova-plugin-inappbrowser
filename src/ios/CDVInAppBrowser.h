@@ -21,8 +21,10 @@
 #import <Cordova/CDVInvokedUrlCommand.h>
 #import <Cordova/CDVScreenOrientationDelegate.h>
 #import <Cordova/CDVWebViewDelegate.h>
+#import <WebKit/WebKit.h>
 
 @class CDVInAppBrowserViewController;
+
 
 @interface CDVInAppBrowser : CDVPlugin {
     BOOL _injectedIframeBridge;
@@ -31,6 +33,7 @@
 @property (nonatomic, retain) CDVInAppBrowserViewController* inAppBrowserViewController;
 @property (nonatomic, copy) NSString* callbackId;
 @property (nonatomic, copy) NSRegularExpression *callbackIdPattern;
+
 
 - (void)open:(CDVInvokedUrlCommand*)command;
 - (void)close:(CDVInvokedUrlCommand*)command;
@@ -63,7 +66,7 @@
 
 @end
 
-@interface CDVInAppBrowserViewController : UIViewController <UIWebViewDelegate, CDVScreenOrientationDelegate>{
+@interface CDVInAppBrowserViewController : UIViewController <UIWebViewDelegate, CDVScreenOrientationDelegate,WKScriptMessageHandler>{
     @private
     NSString* _userAgent;
     NSString* _prevUserAgent;
@@ -72,7 +75,7 @@
     CDVWebViewDelegate* _webViewDelegate;
 }
 
-@property (nonatomic, strong) IBOutlet UIWebView* webView;
+@property (nonatomic, strong) IBOutlet UIView* webView;
 @property (nonatomic, strong) IBOutlet UIBarButtonItem* closeButton;
 @property (nonatomic, strong) IBOutlet UILabel* addressLabel;
 @property (nonatomic, strong) IBOutlet UIBarButtonItem* backButton;
@@ -82,6 +85,8 @@
 
 @property (nonatomic, weak) id <CDVScreenOrientationDelegate> orientationDelegate;
 @property (nonatomic, weak) CDVInAppBrowser* navigationDelegate;
+@property (nonatomic, weak) id <CDVCommandDelegate> commandDelegate;
+
 @property (nonatomic) NSURL* currentURL;
 
 - (void)close;
