@@ -186,6 +186,10 @@
             }
         }
     }
+    
+    if (browserOptions.statusbarstyle) {
+        self.inAppBrowserViewController.statusBarStyle = browserOptions.statusbarstyle;
+    }
 
     // UIWebView options
     self.inAppBrowserViewController.webView.scalesPageToFit = browserOptions.enableviewportscale;
@@ -196,7 +200,10 @@
         self.inAppBrowserViewController.webView.suppressesIncrementalRendering = browserOptions.suppressesincrementalrendering;
     }
 
+    
+
     [self.inAppBrowserViewController navigateTo:url];
+    
     if (!browserOptions.hidden) {
         [self show:nil];
     }
@@ -462,6 +469,10 @@
 @implementation CDVInAppBrowserViewController
 
 @synthesize currentURL;
+
+-(UIStatusBarStyle)preferredStatusBarStyle{
+    return UIStatusBarStyleLightContent;
+}
 
 - (id)initWithUserAgent:(NSString*)userAgent prevUserAgent:(NSString*)prevUserAgent browserOptions: (CDVInAppBrowserOptions*) browserOptions
 {
@@ -734,11 +745,6 @@
     [super viewDidUnload];
 }
 
-- (UIStatusBarStyle)preferredStatusBarStyle
-{
-    return UIStatusBarStyleDefault;
-}
-
 - (void)close
 {
     [CDVUserAgentUtil releaseLock:&_userAgentLockToken];
@@ -786,7 +792,11 @@
 - (void)viewWillAppear:(BOOL)animated
 {
     if (IsAtLeastiOSVersion(@"7.0")) {
-        [[UIApplication sharedApplication] setStatusBarStyle:[self preferredStatusBarStyle]];
+        if ([self statusBarStyle]) {
+            [[UIApplication sharedApplication] setStatusBarStyle:[self statusBarStyle]];
+        } else {
+            [[UIApplication sharedApplication] setStatusBarStyle:[self preferredStatusBarStyle]];
+        }
     }
     [self rePositionViews];
 
@@ -961,7 +971,17 @@
                     [obj setValue:[numberFormatter numberFromString:value_lc] forKey:key];
                 } else if (isBoolean) {
                     [obj setValue:[NSNumber numberWithBool:[value_lc isEqualToString:@"yes"]] forKey:key];
-                } else {
+                } else if ([key isEqualToString:@"statusbarstyle"]) {
+                    if ([value isEqualToString:@"styleLightContent"]) {
+                        obj.statusbarstyle = UIStatusBarStyleLightContent;
+                    } else if ([value isEqualToString:@"styleBlackOpaque"]) {
+                        obj.statusbarstyle = UIStatusBarStyleBlackOpaque;
+                    } else if ([value isEqualToString:@"styleBlackTranslucent"]) {
+                        obj.statusbarstyle = UIStatusBarStyleBlackTranslucent;
+                    } else if ([value isEqualToString:@"styleDefault"]) {
+                        obj.statusbarstyle = UIStatusBarStyleDefault;
+                    }
+                }else {
                     [obj setValue:value forKey:key];
                 }
             }
