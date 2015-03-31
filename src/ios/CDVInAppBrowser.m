@@ -21,8 +21,6 @@
 #import <Cordova/CDVPluginResult.h>
 #import <Cordova/CDVUserAgentUtil.h>
 
-#import "MyMainViewController.h"
-
 #define    kInAppBrowserTargetSelf @"_self"
 #define    kInAppBrowserTargetSystem @"_system"
 #define    kInAppBrowserTargetBlank @"_blank"
@@ -143,7 +141,6 @@
         NSString* originalUA = [CDVUserAgentUtil originalUserAgent];
         self.inAppBrowserViewController = [[CDVInAppBrowserViewController alloc] initWithUserAgent:originalUA prevUserAgent:[self.commandDelegate userAgent] browserOptions: browserOptions];
         self.inAppBrowserViewController.navigationDelegate = self;
-        self.inAppBrowserViewController.commandDelegate = self.commandDelegate;
 
         if ([self.viewController conformsToProtocol:@protocol(CDVScreenOrientationDelegate)]) {
             self.inAppBrowserViewController.orientationDelegate = (UIViewController <CDVScreenOrientationDelegate>*)self.viewController;
@@ -180,11 +177,7 @@
     // prevent webView from bouncing
     if (browserOptions.disallowoverscroll) {
         if ([self.inAppBrowserViewController.webView respondsToSelector:@selector(scrollView)]) {
-            if (!IsAtLeastiOSVersion(@"8.0")) {
-                ((UIScrollView*)[(UIWebView *)self.inAppBrowserViewController.webView scrollView]).bounces = NO;
-            } else {
-                ((UIScrollView*)[(WKWebView *)self.inAppBrowserViewController.webView scrollView]).bounces = NO;
-            }
+            ((UIScrollView*)[self.inAppBrowserViewController.webView scrollView]).bounces = NO;
         } else {
             for (id subview in self.inAppBrowserViewController.webView.subviews) {
                 if ([[subview class] isSubclassOfClass:[UIScrollView class]]) {
@@ -195,15 +188,12 @@
     }
 
     // UIWebView options
-    if (!IsAtLeastiOSVersion(@"8.0")) {
-        UIWebView* myView = (UIWebView *)self.inAppBrowserViewController.webView;
-        myView.scalesPageToFit = browserOptions.enableviewportscale;
-        myView.mediaPlaybackRequiresUserAction = browserOptions.mediaplaybackrequiresuseraction;
-        myView.allowsInlineMediaPlayback = browserOptions.allowinlinemediaplayback;
-        if (IsAtLeastiOSVersion(@"6.0")) {
-            myView.keyboardDisplayRequiresUserAction = browserOptions.keyboarddisplayrequiresuseraction;
-            myView.suppressesIncrementalRendering = browserOptions.suppressesincrementalrendering;
-        }
+    self.inAppBrowserViewController.webView.scalesPageToFit = browserOptions.enableviewportscale;
+    self.inAppBrowserViewController.webView.mediaPlaybackRequiresUserAction = browserOptions.mediaplaybackrequiresuseraction;
+    self.inAppBrowserViewController.webView.allowsInlineMediaPlayback = browserOptions.allowinlinemediaplayback;
+    if (IsAtLeastiOSVersion(@"6.0")) {
+        self.inAppBrowserViewController.webView.keyboardDisplayRequiresUserAction = browserOptions.keyboarddisplayrequiresuseraction;
+        self.inAppBrowserViewController.webView.suppressesIncrementalRendering = browserOptions.suppressesincrementalrendering;
     }
 
     [self.inAppBrowserViewController navigateTo:url];
@@ -267,29 +257,22 @@
 
 - (void)injectDeferredObject:(NSString*)source withWrapper:(NSString*)jsWrapper
 {
-    
-    if (IsAtLeastiOSVersion(@"8.0")) {
-        NSLog(@"Injecting %@", source);
-        [(WKWebView *)self.inAppBrowserViewController.webView evaluateJavaScript:source completionHandler:nil];
-    } else {
-    
-        if (!_injectedIframeBridge) {
-            _injectedIframeBridge = YES;
-            // Create an iframe bridge in the new document to communicate with the CDVInAppBrowserViewController
-            [(UIWebView *)self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:@"(function(d){var e = _cdvIframeBridge = d.createElement('iframe');e.style.display='none';d.body.appendChild(e);})(document)"];
-        }
+    if (!_injectedIframeBridge) {
+        _injectedIframeBridge = YES;
+        // Create an iframe bridge in the new document to communicate with the CDVInAppBrowserViewController
+        [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:@"(function(d){var e = _cdvIframeBridge = d.createElement('iframe');e.style.display='none';d.body.appendChild(e);})(document)"];
+    }
 
-        if (jsWrapper != nil) {
-            NSData* jsonData = [NSJSONSerialization dataWithJSONObject:@[source] options:0 error:nil];
-            NSString* sourceArrayString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
-            if (sourceArrayString) {
-                NSString* sourceString = [sourceArrayString substringWithRange:NSMakeRange(1, [sourceArrayString length] - 2)];
-                NSString* jsToInject = [NSString stringWithFormat:jsWrapper, sourceString];
-                [(UIWebView *)self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:jsToInject];
-            } else {
-                [(UIWebView *)self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:source];
-            }
+    if (jsWrapper != nil) {
+        NSData* jsonData = [NSJSONSerialization dataWithJSONObject:@[source] options:0 error:nil];
+        NSString* sourceArrayString = [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
+        if (sourceArrayString) {
+            NSString* sourceString = [sourceArrayString substringWithRange:NSMakeRange(1, [sourceArrayString length] - 2)];
+            NSString* jsToInject = [NSString stringWithFormat:jsWrapper, sourceString];
+            [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:jsToInject];
         }
+    } else {
+        [self.inAppBrowserViewController.webView stringByEvaluatingJavaScriptFromString:source];
     }
 }
 
@@ -480,15 +463,6 @@
 
 @synthesize currentURL;
 
-- (void)userContentController:(WKUserContentController *)userContentController
-      didReceiveScriptMessage:(WKScriptMessage *)message {
-    NSDictionary *sentData = (NSDictionary *)message.body;
-    NSString *encodedCode = sentData[@"code"];
-    NSString* code = [encodedCode stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-    [self.commandDelegate evalJs: code];
-}
-
-
 - (id)initWithUserAgent:(NSString*)userAgent prevUserAgent:(NSString*)prevUserAgent browserOptions: (CDVInAppBrowserOptions*) browserOptions
 {
     self = [super init];
@@ -510,23 +484,14 @@
     CGRect webViewBounds = self.view.bounds;
     BOOL toolbarIsAtBottom = ![_browserOptions.toolbarposition isEqualToString:kInAppBrowserToolbarBarPositionTop];
     webViewBounds.size.height -= _browserOptions.location ? FOOTER_HEIGHT : TOOLBAR_HEIGHT;
-    
-    if (!IsAtLeastiOSVersion(@"8.0")) {
-        self.webView = [[UIWebView alloc] initWithFrame:webViewBounds];
-        ((UIWebView *)self.webView).delegate = _webViewDelegate;
-        ((UIWebView *)self.webView).scalesPageToFit = NO;
-    } else {
-        WKWebViewConfiguration *theConfiguration = [[WKWebViewConfiguration alloc] init];
-        [theConfiguration.userContentController addScriptMessageHandler:self name:@"iab"];
-        self.webView = [[WKWebView alloc] initWithFrame:webViewBounds configuration:theConfiguration];
-    }
-    
+    self.webView = [[UIWebView alloc] initWithFrame:webViewBounds];
+
     self.webView.autoresizingMask = (UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight);
 
     [self.view addSubview:self.webView];
     [self.view sendSubviewToBack:self.webView];
 
-
+    self.webView.delegate = _webViewDelegate;
     self.webView.backgroundColor = [UIColor whiteColor];
 
     self.webView.clearsContextBeforeDrawing = YES;
@@ -534,7 +499,7 @@
     self.webView.contentMode = UIViewContentModeScaleToFill;
     self.webView.multipleTouchEnabled = YES;
     self.webView.opaque = YES;
-
+    self.webView.scalesPageToFit = NO;
     self.webView.userInteractionEnabled = YES;
 
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
@@ -764,11 +729,7 @@
 
 - (void)viewDidUnload
 {
-    if (IsAtLeastiOSVersion(@"8.0")) {
-        [(WKWebView *)self.webView loadHTMLString:nil baseURL:nil];
-    } else {
-        [(UIWebView *)self.webView loadHTMLString:nil baseURL:nil];
-    }
+    [self.webView loadHTMLString:nil baseURL:nil];
     [CDVUserAgentUtil releaseLock:&_userAgentLockToken];
     [super viewDidUnload];
 }
@@ -801,45 +762,25 @@
 {
     NSURLRequest* request = [NSURLRequest requestWithURL:url];
 
-    if (IsAtLeastiOSVersion(@"8.0")) {
-        if (_userAgentLockToken != 0) {
-            [(WKWebView *)self.webView loadRequest:request];
-        } else {
-            [CDVUserAgentUtil acquireLock:^(NSInteger lockToken) {
-                _userAgentLockToken = lockToken;
-                [CDVUserAgentUtil setUserAgent:_userAgent lockToken:lockToken];
-                [((WKWebView *)self.webView) loadRequest:request];
-            }];
-        }
+    if (_userAgentLockToken != 0) {
+        [self.webView loadRequest:request];
     } else {
-        if (_userAgentLockToken != 0) {
-            [(UIWebView *)self.webView loadRequest:request];
-        } else {
-            [CDVUserAgentUtil acquireLock:^(NSInteger lockToken) {
-                _userAgentLockToken = lockToken;
-                [CDVUserAgentUtil setUserAgent:_userAgent lockToken:lockToken];
-                [(UIWebView *)self.webView loadRequest:request];
-            }];
-        }
+        [CDVUserAgentUtil acquireLock:^(NSInteger lockToken) {
+            _userAgentLockToken = lockToken;
+            [CDVUserAgentUtil setUserAgent:_userAgent lockToken:lockToken];
+            [self.webView loadRequest:request];
+        }];
     }
 }
 
 - (void)goBack:(id)sender
 {
-    if (IsAtLeastiOSVersion(@"8.0")) {
-        [(WKWebView *)self.webView goBack];
-    } else {
-        [(UIWebView *)self.webView goBack];
-    }
+    [self.webView goBack];
 }
 
 - (void)goForward:(id)sender
 {
-    if (IsAtLeastiOSVersion(@"8.0")) {
-        [(WKWebView *)self.webView goForward];
-    } else {
-        [(UIWebView *)self.webView goForward];
-    }
+    [self.webView goForward];
 }
 
 - (void)viewWillAppear:(BOOL)animated
